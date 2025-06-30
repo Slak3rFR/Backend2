@@ -8,6 +8,11 @@ router.get('/', (req, res) => {
     res.redirect('/products');
 });
 
+// Redirigir /carts a /products
+router.get('/carts', (req, res) => {
+    res.redirect('/products');
+});
+
 // Lista de productos con paginación
 router.get('/products', async (req, res) => {
     try {

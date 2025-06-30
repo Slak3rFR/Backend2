@@ -4,6 +4,9 @@ const { Server } = require('socket.io');
 const path = require('path');
 const connectDB = require('./config/db');
 const Product = require('./models/Product');
+const usersRouter = require('./routes/users');
+const sessionsRouter = require('./routes/sessions');
+require('./passport'); // Configura Passport
 
 const app = express();
 
@@ -36,7 +39,9 @@ const viewsRouter = require('./routes/views');
 
 app.use('/api/products', productsRouter);
 app.use('/api/carts', cartsRouter);
-app.use('/', viewsRouter); // Esta línea es clave para manejar rutas como /
+app.use('/', viewsRouter);
+app.use('/api/users', usersRouter);
+app.use('/api/sessions', sessionsRouter);
 
 // Configurar eventos de Socket.io
 io.on('connection', async (socket) => {
