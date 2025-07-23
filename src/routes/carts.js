@@ -1,103 +1,118 @@
 const express = require('express');
-const router = express.Router();
-const Cart = require('../models/Cart');
-const Product = require('../models/Product');
+const router = express.Router(); // Inicializa el router
+const cartRepository = require('../repositories/cartRepository');
+const ticketRepository = require('../repositories/ticketRepository'); // Importa ticketRepository
+const { authMiddleware, authorizationMiddleware } = require('../passport');
+const Product = require('../models/Product'); // Necesario para verificar stock
 
-router.post('/', async (req, res) => {
+router.post('/', authMiddleware, async (req, res) => {
     try {
-        const newCart = await Cart.create({ products: [] });
-        res.status(201).json(newCart);
+        const cart = await cartRepository.create();
+        res.status(201).json({ status: 'success', payload: cart });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ status: 'error', message: error.message });
     }
 });
 
-router.get('/:cid', async (req, res) => {
+router.get('/:cid', authMiddleware, async (req, res) => {
     try {
-        const cart = await Cart.findById(req.params.cid).populate('products.product');
-        if (!cart) return res.status(404).json({ error: 'Cart not found' });
-        res.json(cart);
+        const cart = await cartRepository.getById(req.params.cid);
+        if (!cart) return res.status(404).json({ status: 'error', message: 'Cart not found' });
+        res.json({ status: 'success', payload: cart });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ status: 'error', message: error.message });
     }
 });
 
-router.post('/:cid/product/:pid', async (req, res) => {
+router.post('/:cid/product/:pid', authMiddleware, authorizationMiddleware(['user']), async (req, res) => {
     try {
-        const cart = await Cart.findById(req.params.cid);
-        if (!cart) return res.status(404).json({ error: 'Cart not found' });
-        const product = await Product.findById(req.params.pid);
-        if (!product) return res.status(404).json({ error: 'Product not found' });
+        const cart = await cartRepository.addProduct(req.params.cid, req.params.pid);
+        if (!cart) return res.status(404).json({ status: 'error', message: 'Cart not found' });
+        res.json({ status: 'success', message: 'Product added to cart' });
+    } catch (error) {
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+});
 
-        const productIndex = cart.products.findIndex(p => p.product.toString() === reqffffffffff.params.pid);
-        if (productIndex === -1) {
-            cart.products.push({ product: req.params.pid, quantity: 1 });
-        } else {
-            cart.products[productIndex].quantity += 1;
-        }
+router.delete('/:cid/products/:pid', authMiddleware, authorizationMiddleware(['user']), async (req, res) => {
+    try {
+        const cart = await cartRepository.removeProduct(req.params.cid, req.params.pid);
+        if (!cart) return res.status(404).json({ status: 'error', message: 'Cart not found' });
+        res.json({ status: 'success', message: 'Product removed from cart' });
+    } catch (error) {
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+});
+
+router.put('/:cid', authMiddleware, async (req, res) => {
+    try {
+        const cart = await cartRepository.update(req.params.cid, req.body.products);
+        if (!cart) return res.status(404).json({ status: 'error', message: 'Cart not found' });
+        res.json({ status: 'success', payload: cart });
+    } catch (error) {
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+});
+
+router.put('/:cid/products/:pid', authMiddleware, authorizationMiddleware(['user']), async (req, res) => {
+    try {
+        const cart = await cartRepository.getById(req.params.cid);
+        if (!cart) return res.status(404).json({ status: 'error', message: 'Cart not found' });
+        const product = cart.products.find(p => p.product.toString() === req.params.pid);
+        if (product) product.quantity = req.body.quantity;
         await cart.save();
-        res.json(cart);
+        res.json({ status: 'success', message: 'Quantity updated' });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ status: 'error', message: error.message });
     }
 });
 
-router.delete('/:cid/products/:pid', async (req, res) => {
+router.delete('/:cid', authMiddleware, authorizationMiddleware(['user']), async (req, res) => {
     try {
-        const cart = await Cart.findById(req.params.cid);
-        if (!cart) return res.status(404).json({ error: 'Cart not found' });
-        cart.products = cart.products.filter(p => p.product.toString() !== req.params.pid);
-        await cart.save();
-        res.json(cart);
+        const cart = await cartRepository.clear(req.params.cid);
+        if (!cart) return res.status(404).json({ status: 'error', message: 'Cart not found' });
+        res.json({ status: 'success', message: 'Cart cleared' });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ status: 'error', message: error.message });
     }
 });
 
-router.put('/:cid', async (req, res) => {
+// Endpoint de compra
+router.post('/:cid/purchase', authMiddleware, authorizationMiddleware(['user']), async (req, res) => {
     try {
-        const { products } = req.body;
-        if (!Array.isArray(products)) return res.status(400).json({ error: 'Products must be an array' });
-        for (const item of products) {
-            if (!item.product || !item.quantity || item.quantity < 0) {
-                return res.status(400).json({ error: 'Invalid product or quantity' });
-            }
+        const cart = await cartRepository.getById(req.params.cid);
+        if (!cart) return res.status(404).json({ status: 'error', message: 'Cart not found' });
+
+        let totalAmount = 0;
+        const outOfStock = [];
+
+        for (const item of cart.products) {
             const product = await Product.findById(item.product);
-            if (!product) return res.status(404).json({ error: `Product ${item.product} not found` });
+            if (product.stock >= item.quantity) {
+                totalAmount += product.price * item.quantity;
+                product.stock -= item.quantity;
+                await product.save();
+            } else {
+                outOfStock.push(product._id);
+            }
         }
-        const cart = await Cart.findByIdAndUpdate(req.params.cid, { products }, { new: true });
-        if (!cart) return res.status(404).json({ error: 'Cart not found' });
-        res.json(cart);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
 
-router.put('/:cid/products/:pid', async (req, res) => {
-    try {
-        const { quantity } = req.body;
-        if (!quantity || quantity < 0) return res.status(400).json({ error: 'Invalid quantity' });
-        const cart = await Cart.findById(req.params.cid);
-        if (!cart) return res.status(404).json({ error: 'Cart not found' });
-        const productIndex = cart.products.findIndex(p => p.product.toString() === req.params.pid);
-        if (productIndex === -1) return res.status(404).json({ error: 'Product not in cart' });
-        cart.products[productIndex].quantity = quantity;
+        // Filtrar productos fuera de stock
+        cart.products = cart.products.filter(item => !outOfStock.includes(item.product));
         await cart.save();
-        res.json(cart);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
 
-router.delete('/:cid', async (req, res) => {
-    try {
-        const cart = await Cart.findById(req.params.cid);
-        if (!cart) return res.status(404).json({ error: 'Cart not found' });
-        cart.products = [];
-        await cart.save();
-        res.json(cart);
+        if (cart.products.length === 0) {
+            const ticket = await ticketRepository.create({
+                code: uuidv4(),
+                amount: totalAmount,
+                purchaser: req.user.email
+            });
+            res.json({ status: 'success', message: 'Purchase completed', ticket });
+        } else {
+            res.json({ status: 'partial', message: 'Some products are out of stock', outOfStock });
+        }
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ status: 'error', message: error.message });
     }
 });
 

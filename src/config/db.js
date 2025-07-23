@@ -1,12 +1,16 @@
 const mongoose = require('mongoose');
+const { mongoUri } = require('./env');
 
 const connectDB = async () => {
     try {
-        await mongoose.connect('mongodb://localhost:27017/backend-entrega');
+        await mongoose.connect(mongoUri, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true
+        });
         console.log('MongoDB connected');
-    } catch (error) {
-        console.error('MongoDB connection error:', error);
-        process.exit(1);
+    } catch (err) {
+        console.error('MongoDB connection error:', err);
+        process.exit(1); // Sale del proceso si falla la conexión
     }
 };
 

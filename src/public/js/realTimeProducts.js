@@ -1,48 +1,32 @@
 const socket = io();
 
-socket.on('connect', () => {
-    console.log('Conectado al servidor WebSocket');
+document.getElementById('addProductForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const product = {
+        title: document.getElementById('title').value,
+        description: document.getElementById('description').value,
+        code: document.getElementById('code').value,
+        price: parseFloat(document.getElementById('price').value),
+        status: true,
+        stock: parseInt(document.getElementById('stock').value),
+        category: document.getElementById('category').value,
+        thumbnails: []
+    };
+    socket.emit('addProduct', product);
+    e.target.reset();
 });
 
 socket.on('updateProducts', (products) => {
-    const productsList = document.getElementById('productsList');
-    productsList.innerHTML = '';
+    console.log('Productos actualizados:', products);
+    const productList = document.getElementById('productList');
+    productList.innerHTML = '';
     products.forEach(product => {
         const li = document.createElement('li');
-        li.setAttribute('data-id', product._id);
-        li.innerHTML = `
-            <strong>${product.title}</strong> (ID: ${product._id})<br>
-            Descripción: ${product.description}<br>
-            Precio: $${product.price}<br>
-            Categoría: ${product.category}<br>
-            Stock: ${product.stock}<br>
-            <button onclick="deleteProduct('${product._id}')">Eliminar</button>
-        `;
-        productsList.appendChild(li);
+        li.innerHTML = `${product.title} - $${product.price} <button onclick="socket.emit('deleteProduct', '${product._id.toString()}')">Eliminar</button>`;
+        productList.appendChild(li);
     });
 });
 
 socket.on('error', (message) => {
     alert(message);
 });
-
-document.getElementById('addProductForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    const product = {
-        title: formData.get('title'),
-        description: formData.get('description'),
-        code: formData.get('code'),
-        price: parseFloat(formData.get('price')),
-        status: true,
-        stock: parseInt(formData.get('stock')),
-        category: formData.get('category'),
-        thumbnails: formData.get('thumbnails') ? [formData.get('thumbnails')] : []
-    };
-    socket.emit('addProduct', product);
-    e.target.reset();
-});
-
-function deleteProduct(id) {
-    socket.emit('deleteProduct', id);
-}

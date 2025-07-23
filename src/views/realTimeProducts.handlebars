@@ -1,28 +1,33 @@
-<h1>Productos en Tiempo Real</h1>
-<ul id="productsList">
-    {{#each products}}
-        <li data-id="{{this.id}}">
-            <strong>{{this.title}}</strong> (ID: {{this.id}})<br>
-            Descripción: {{this.description}}<br>
-            Precio: ${{this.price}}<br>
-            Categoría: {{this.category}}<br>
-            Stock: {{this.stock}}<br>
-            <button onclick="deleteProduct({{this.id}})">Eliminar</button>
-        </li>
-    {{/each}}
-</ul>
-
-<h2>Agregar Nuevo Producto</h2>
-<form id="addProductForm">
-    <input type="text" name="title" placeholder="Título" required><br>
-    <input type="text" name="description" placeholder="Descripción" required><br>
-    <input type="text" name="code" placeholder="Código" required><br>
-    <input type="number" name="price" placeholder="Precio" required><br>
-    <input type="number" name="stock" placeholder="Stock" required><br>
-    <input type="text" name="category" placeholder="Categoría" required><br>
-    <input type="text" name="thumbnails" placeholder="URLs de imágenes (opcional)"><br>
-    <button type="submit">Agregar Producto</button>
-</form>
-
-<script src="/socket.io/socket.io.js"></script>
-<script src="/js/realTimeProducts.js"></script>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Productos en Tiempo Real</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/realTimeProducts.js" defer></script>
+</head>
+<body>
+    <h1>Productos en Tiempo Real</h1>
+    <form id="addProductForm">
+        <label for="title">Título:</label><br>
+        <input type="text" id="title" name="title" placeholder="Título" required><br>
+        <label for="description">Descripción:</label><br>
+        <input type="text" id="description" name="description" placeholder="Descripción" required><br>
+        <label for="code">Código:</label><br>
+        <input type="text" id="code" name="code" placeholder="Código" required><br>
+        <label for="price">Precio:</label><br>
+        <input type="number" id="price" name="price" placeholder="Precio" step="0.01" required><br>
+        <label for="stock">Stock:</label><br>
+        <input type="number" id="stock" name="stock" placeholder="Stock" required><br>
+        <label for="category">Categoría:</label><br>
+        <input type="text" id="category" name="category" placeholder="Categoría" required><br>
+        <button type="submit">Agregar Producto</button>
+    </form>
+    <h2>Lista de Productos</h2>
+    <ul id="productList">
+        {{#each products}}
+            <li>{{title}} - ${{price}} <button onclick="socket.emit('deleteProduct', '{{_id}}')">Eliminar</button></li>
+        {{/each}}
+    </ul>
+</body>
+</html>
